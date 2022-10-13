@@ -149,6 +149,20 @@ const menu = () => {
           name: "newRole",
           when: (answers) => answers.employeeUpdate,
         },
+
+        //Group of questions for updating an employee's manager
+        {
+          type: "input",
+          message: "Please enter the ID of the employee you wish to update.",
+          name: "employeeUpdateManager",
+          when: (answers) => answers.menu == "Update an employee's manager",
+        },
+        {
+          type: "input",
+          message: "Please enter the ID of the new manager for this employee.",
+          name: "newManager",
+          when: (answers) => answers.employeeUpdateManager,
+        },
       ])
 
       //One .then handles all possible answers
@@ -219,10 +233,13 @@ const menu = () => {
 
         //Call the updateEmployee function when the last question in the update chain is finished
         else if (response.newRole) {
-          newRole();
+          updateEmployeeRole(response.employeeUpdate, response.newRole);
           menu();
-        } else if (response.menu == "Update an employee's manager") {
-          newManager();
+        } else if (response.newManager) {
+          updateEmployeeManager(
+            response.employeeUpdateManager,
+            response.newManager
+          );
           menu();
         }
       })
@@ -230,46 +247,6 @@ const menu = () => {
 };
 
 menu();
-
-const newRole = () => {
-  return inquirer
-    .prompt([
-      {
-        type: "input",
-        message:
-          "Please enter the ID of the employee whose role you wish to update.",
-        name: "employee",
-      },
-      {
-        type: "input",
-        message: "Please enter the ID of the new role for this employee.",
-        name: "role",
-      },
-    ])
-    .then((response) => {
-      updateEmployeeRole(response.employee, response.role);
-    });
-};
-
-const newManager = () => {
-  return inquirer
-    .prompt([
-      {
-        type: "input",
-        message:
-          "Please enter the ID of the employee whose manager you wish to update.",
-        name: "employee",
-      },
-      {
-        type: "input",
-        message: "Please enter the ID of the new manager for this employee.",
-        name: "manager",
-      },
-    ])
-    .then((response) => {
-      updateEmployeeManager(response.employee, response.manager);
-    });
-};
 
 //Function definitions
 const viewDepartments = () => {
