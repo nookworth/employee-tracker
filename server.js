@@ -24,7 +24,7 @@ const db = mysql.createConnection(
   console.log(`Connected to the employee_db database.`)
 );
 
-const init = () => {
+const menu = () => {
   return (
     inquirer
       .prompt([
@@ -38,6 +38,7 @@ const init = () => {
             "View all employees",
             "View employees by manager",
             "View employees by department",
+            "View total utilized budget of a department",
             "Add a department",
             "Add a role",
             "Add an employee",
@@ -47,6 +48,14 @@ const init = () => {
             "Update an employee role",
             "Update an employee's manager",
           ],
+        },
+
+        {
+          type: "input",
+          message: "Please enter the department id",
+          name: "deptBudget",
+          when: (answers) =>
+            answers.menu == "View total utilized budget of a department",
         },
 
         //Question for adding a department
@@ -103,12 +112,28 @@ const init = () => {
           when: (answers) => answers.employeeRole,
         },
 
+        //Question for deleting an employee
+        {
+          type: "input",
+          message: "Enter the ID of the employee you wish to delete.",
+          name: "deleteEmployee",
+          when: (answers) => answers.menu == "Delete an employee",
+        },
+
         //Question for deleting a department
         {
           type: "input",
           message: "Enter the ID of the department you wish to delete.",
           name: "deleteDept",
           when: (answers) => answers.menu == "Delete a department",
+        },
+
+        //Question for deleting a role
+        {
+          type: "input",
+          message: "Enter the ID of the role you wish to delete.",
+          name: "deleteRole",
+          when: (answers) => answers.menu == "Delete a role",
         },
 
         //Group of questions for updating an employee
@@ -130,16 +155,27 @@ const init = () => {
       .then((response) => {
         if (response.menu == "View all departments") {
           viewDepartments();
+          menu();
         } else if (response.menu == "View all roles") {
           viewRoles();
+          menu();
         } else if (response.menu == "View all employees") {
           viewEmployees();
+          menu();
         } else if (response.menu == "View employees by manager") {
           viewEmployeesByManager();
+          menu();
         } else if (response.menu == "View employees by department") {
           viewEmployeesByDept();
+          menu();
+        } else if (
+          response.menu == "View total utilized budget of a department"
+        ) {
+          totalUtilizedBudget(JSON.stringify(response.deptBudget));
+          menu();
         } else if (response.department) {
           addDepartment(JSON.stringify(response.department));
+          menu();
         }
 
         // Call the addRole function when the last question in the role chain is finished
@@ -149,6 +185,7 @@ const init = () => {
             response.roleSalary,
             response.roleDept
           );
+          menu();
         }
 
         //Call the addEmployee function when the last question in the employee chain is finished
@@ -159,23 +196,40 @@ const init = () => {
             response.employeeRole,
             response.employeeManager
           );
+          menu();
+        }
 
-          //Call the deleteDept function if the option is chosen
-        } else if (response.deleteDept) {
+        //Call the deleteEmployee function
+        else if (response.deleteEmployee) {
+          deleteEmployee(response.deleteEmployee);
+          menu();
+        }
+
+        //Call the deleteDept function
+        else if (response.deleteDept) {
           deleteDept(response.deleteDept);
+          menu();
+        }
+
+        //Call the deleteRole function
+        else if (response.deleteRole) {
+          deleteRole(response.deleteRole);
+          menu();
         }
 
         //Call the updateEmployee function when the last question in the update chain is finished
         else if (response.newRole) {
           newRole();
+          menu();
         } else if (response.menu == "Update an employee's manager") {
           newManager();
+          menu();
         }
       })
   );
 };
 
-init();
+menu();
 
 const newRole = () => {
   return inquirer
@@ -217,60 +271,24 @@ const newManager = () => {
     });
 };
 
-// const update = () => {
-//   db.query(
-//     "SELECT COUNT(*) AS idCount FROM employee",
-//     function (err, rows, results) {
-//       idCount = rows[0].idCount;
-//       console.log(idCount);
-//     }
-//   );
-
-//   db.query(
-//     `SELECT * FROM employee WHERE id = ${idCount}`,
-//     function (err, results) {
-//       console.log(results);
-//     }
-//   );
-
-// for (let i = 1; i < idCount + 1; i++) {
-//   db.query(`SELECT * FROM employee WHERE id = ${i}`, function (err, results) {
-//     console.log(results);
-//   });
-// }
-
-// return inquirer.prompt([
-//   //Group of questions for updating an employee
-//   {
-//     type: "list",
-//     message: "Please select the ID of the employee you wish to update.",
-//     name: "employeeUpdate",
-//     choices: [],
-//     when: (answers) => (answers.menu = "Update an employee role"),
-//   },
-//   {
-//     type: "input",
-//     message: "Please enter the ID of the new role for this employee.",
-//     name: "newRole",
-//     when: (answers) => answers.employeeUpdate,
-//   },
-// ]);
-// };
-
+//Function definitions
 const viewDepartments = () => {
   db.query("SELECT * FROM department", function (err, results) {
+    console.log("\n");
     console.table(results);
   });
 };
 
 const viewRoles = () => {
   db.query("SELECT * FROM role", function (err, results) {
+    console.log("\n");
     console.table(results);
   });
 };
 
 const viewEmployees = () => {
   db.query("SELECT * FROM employee", function (err, results) {
+    console.log("\n");
     console.table(results);
   });
 };
@@ -279,6 +297,7 @@ const viewEmployeesByManager = () => {
   db.query(
     "SELECT manager_id, id, first_name, last_name, role_id FROM employee ORDER BY manager_id",
     function (err, results) {
+      console.log("\n");
       console.table(results);
     }
   );
@@ -288,6 +307,17 @@ const viewEmployeesByDept = () => {
   db.query(
     "SELECT department.id AS department_id, employee.id AS employee_id, employee.first_name, employee.last_name FROM employee INNER JOIN role ON role_id = role.id INNER JOIN department ON role.department_id = department.id ORDER BY department.id;",
     function (err, results) {
+      console.log("\n");
+      console.table(results);
+    }
+  );
+};
+
+const totalUtilizedBudget = (id) => {
+  db.query(
+    `SELECT department.id AS department_id, COUNT(employee.id) AS num_employees, SUM(salary) AS total_utilized_budget FROM employee JOIN role ON employee.role_id = role.id JOIN department ON role.department_id = department.id WHERE department.id = ${id} GROUP BY department.id;`,
+    function (err, results) {
+      console.log("\n");
       console.table(results);
     }
   );
@@ -296,6 +326,7 @@ const viewEmployeesByDept = () => {
 const addDepartment = (departmentName) => {
   db.query(`INSERT INTO department (name) VALUES (${departmentName})`);
   db.query("SELECT * FROM department", function (err, results) {
+    console.log("\n");
     console.table(results);
   });
 };
@@ -305,6 +336,7 @@ const addRole = (title, salary, department_id) => {
     `INSERT INTO role (title, salary, department_id) VALUES (${title}, ${salary}, ${department_id})`
   );
   db.query("SELECT * FROM role", function (err, results) {
+    console.log("\n");
     console.table(results);
   });
 };
@@ -314,6 +346,15 @@ const addEmployee = (first_name, last_name, role_id, manager_id) => {
     `INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (${first_name}, ${last_name}, ${role_id}, ${manager_id})`
   );
   db.query("SELECT * FROM employee", function (err, results) {
+    console.log("\n");
+    console.table(results);
+  });
+};
+
+const deleteEmployee = (id) => {
+  db.query(`DELETE FROM employee WHERE id = ${id}`);
+  db.query("SELECT * FROM employee", function (err, results) {
+    console.log("\n");
     console.table(results);
   });
 };
@@ -321,6 +362,15 @@ const addEmployee = (first_name, last_name, role_id, manager_id) => {
 const deleteDept = (id) => {
   db.query(`DELETE FROM department WHERE id = ${id}`);
   db.query("SELECT * FROM department", function (err, results) {
+    console.log("\n");
+    console.table(results);
+  });
+};
+
+const deleteRole = (id) => {
+  db.query(`DELETE FROM role WHERE id = ${id}`);
+  db.query("SELECT * FROM role", function (err, results) {
+    console.log("\n");
     console.table(results);
   });
 };
@@ -330,6 +380,7 @@ const updateEmployeeRole = (employee_id, role_id) => {
     `UPDATE employee SET role_id = ${role_id} WHERE id = ${employee_id}`
   );
   db.query("SELECT * FROM employee", function (err, results) {
+    console.log("\n");
     console.table(results);
   });
 };
@@ -339,6 +390,7 @@ const updateEmployeeManager = (employee_id, manager_id) => {
     `UPDATE employee SET manager_id = ${manager_id} WHERE id = ${employee_id}`
   );
   db.query("SELECT * FROM employee", function (err, results) {
+    console.log("\n");
     console.table(results);
   });
 };
